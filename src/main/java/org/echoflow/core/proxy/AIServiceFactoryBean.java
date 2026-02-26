@@ -4,6 +4,7 @@ import org.echoflow.core.context.ChatMemory;
 import org.echoflow.core.context.SlidingWindowStrategy;
 import org.echoflow.core.prompt.PromptTemplateEngine;
 import org.echoflow.core.provider.LLMProvider;
+import org.echoflow.core.tool.AIToolRegistry;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
@@ -25,6 +26,8 @@ public class AIServiceFactoryBean<T> implements FactoryBean<T> {
     private SlidingWindowStrategy windowStrategy;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private AIToolRegistry toolRegistry;
 
     public AIServiceFactoryBean() {
 
@@ -37,7 +40,7 @@ public class AIServiceFactoryBean<T> implements FactoryBean<T> {
     @Override
     public T getObject() throws Exception {
         AIServiceInvocationHandler handler = new AIServiceInvocationHandler(
-                mapperInterface, llmProvider, promptTemplateEngine, chatMemory, windowStrategy, objectMapper);
+                mapperInterface, llmProvider, promptTemplateEngine, chatMemory, windowStrategy, objectMapper, toolRegistry);
 
         return (T) Proxy.newProxyInstance(
                 mapperInterface.getClassLoader(),

@@ -22,18 +22,25 @@ import org.springframework.context.annotation.Import;
 public class EchoFlowAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
-    public PromptTemplateEngine promptTemplateEngine(){
+    public PromptTemplateEngine promptTemplateEngine() {
         return new PromptTemplateEngine();
     }
+
     @Bean
     @ConditionalOnMissingBean
-    public ChatMemory chatMemory(){
+    public org.echoflow.core.tool.AIToolRegistry aiToolRegistry() {
+        return new org.echoflow.core.tool.AIToolRegistry();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ChatMemory chatMemory() {
         return new InMemoryChatMemory();
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public SlidingWindowStrategy slidingWindowStrategy(){
+    public SlidingWindowStrategy slidingWindowStrategy() {
         return new SlidingWindowStrategy(4000);
     }
 
