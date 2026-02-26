@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 
 import java.lang.reflect.Proxy;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class AIServiceFactoryBean<T> implements FactoryBean<T> {
 
@@ -22,6 +23,8 @@ public class AIServiceFactoryBean<T> implements FactoryBean<T> {
     private ChatMemory chatMemory;
     @Autowired
     private SlidingWindowStrategy windowStrategy;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     public AIServiceFactoryBean() {
 
@@ -34,7 +37,7 @@ public class AIServiceFactoryBean<T> implements FactoryBean<T> {
     @Override
     public T getObject() throws Exception {
         AIServiceInvocationHandler handler = new AIServiceInvocationHandler(
-                mapperInterface, llmProvider, promptTemplateEngine, chatMemory, windowStrategy);
+                mapperInterface, llmProvider, promptTemplateEngine, chatMemory, windowStrategy, objectMapper);
 
         return (T) Proxy.newProxyInstance(
                 mapperInterface.getClassLoader(),

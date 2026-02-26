@@ -17,4 +17,9 @@ public interface ChatBotService {
     @LogToken
     @Prompt("你叫小伊。{{input}}")
     String chatWithMemory(@V("sessionId") String sessionId, @V("input") String input);
+
+    // 3. 结构化输出能力 (POJO Binding)
+    @LogToken
+    @Prompt("抽取以下文本中的人物信息：{{text}}")
+    org.echoflow.test.entity.UserInfo extractUserInfo(@V("text") String text);
 }

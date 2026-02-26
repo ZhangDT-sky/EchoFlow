@@ -1,8 +1,8 @@
 echoflow:
   provider: deepseek
-  api-key: "sk-wEgi762MJFAGF3VR19A9643c19A5412cA6FfD0F167700c63" # 这里填入真实的 API Key
-  default-model: deepseek-chat
-  base-url: http://172.16.2.111:4000/v1
+  api-key: "sk-02ee960a2cf445358d1aa2718b9fcde9" # 这里填入真实的 API Key
+  default-model: deepseek-v3.2
+  base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
 
 logging:
   level:

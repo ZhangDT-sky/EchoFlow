@@ -45,4 +45,14 @@ public class EchoFlowApplicationTest {
         System.out.println("\n我: 请问我最喜欢的语言是什么？");
         System.out.println("AI: " + chatBotService.chatWithMemory(sessionId, "请问我最喜欢的语言是什么？"));
     }
+
+    @Test
+    public void testStructuredOutput() {
+        System.out.println("\n========== 测试结构化 JSON 输出与 Pojo 发绑 ==========");
+        org.echoflow.test.entity.UserInfo userInfo = chatBotService.extractUserInfo(
+                "我叫张大宝，今年28岁，目前是一名资深的后端研发工程师，我平时喜欢打篮球、听周杰伦的流行音乐以及写代码。");
+        System.out.println("解析到的 Pojo 对象：" + userInfo);
+        org.junit.jupiter.api.Assertions.assertNotNull(userInfo);
+        org.junit.jupiter.api.Assertions.assertEquals("张大宝", userInfo.getName());
+    }
 }
