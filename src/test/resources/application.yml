@@ -3,6 +3,15 @@ echoflow:
   api-key: "sk-02ee960a2cf445358d1aa2718b9fcde9" # 这里填入真实的 API Key
   default-model: deepseek-v3.2
   base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  memory:
+    type: redis
+    strategy: summary
+
+spring:
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
 
 logging:
   level:
