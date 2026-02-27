@@ -78,6 +78,13 @@ public class DeepSeekProvider implements LLMProvider {
         if (request.getTools() != null && !request.getTools().isEmpty()) {
             body.put("tools", request.getTools());
         }
+
+        try {
+            System.out.println("[EchoFlow Debug] Request Body: " + mapper.writeValueAsString(body));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         return body;
     }
 

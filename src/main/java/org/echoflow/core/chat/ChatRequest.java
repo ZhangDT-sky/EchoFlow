@@ -3,6 +3,7 @@ package org.echoflow.core.chat;
 import java.util.List;
 import java.util.Map;
 
+@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
 public class ChatRequest {
     private String model;
     private List<Message> messages;
@@ -12,19 +13,47 @@ public class ChatRequest {
     // 发给大模型的工具列表
     public List<Tool> tools;
 
-    public String getModel() { return model; }
-    public void setModel(String model) { this.model = model; }
-    public List<Message> getMessages() { return messages; }
-    public void setMessages(List<Message> messages) { this.messages = messages; }
-    public Boolean getStream() { return stream; }
-    public void setStream(Boolean stream) { this.stream = stream; }
-    public Double getTemperature() { return temperature; }
-    public void setTemperature(Double temperature) { this.temperature = temperature; }
+    public String getModel() {
+        return model;
+    }
 
-    public List<Tool> getTools() {return tools;}
-    public void setTools(List<Tool> tools) {this.tools = tools;}
+    public void setModel(String model) {
+        this.model = model;
+    }
 
-    public static ChatRequest of(String model, List<Message> messages){
+    public List<Message> getMessages() {
+        return messages;
+    }
+
+    public void setMessages(List<Message> messages) {
+        this.messages = messages;
+    }
+
+    public Boolean getStream() {
+        return stream;
+    }
+
+    public void setStream(Boolean stream) {
+        this.stream = stream;
+    }
+
+    public Double getTemperature() {
+        return temperature;
+    }
+
+    public void setTemperature(Double temperature) {
+        this.temperature = temperature;
+    }
+
+    public List<Tool> getTools() {
+        return tools;
+    }
+
+    public void setTools(List<Tool> tools) {
+        this.tools = tools;
+    }
+
+    public static ChatRequest of(String model, List<Message> messages) {
         ChatRequest request = new ChatRequest();
         request.setModel(model);
         request.setMessages(messages);
@@ -33,23 +62,42 @@ public class ChatRequest {
     }
 
     // 工具的实体定义结构
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     public static class Tool {
         private String type = "function"; // 固定为 function
         private Function function;
-        public Tool() {}
-        public Tool(Function function) { this.function = function; }
-        public String getType() { return type; }
-        public void setType(String type) { this.type = type; }
-        public Function getFunction() { return function; }
-        public void setFunction(Function function) { this.function = function; }
+
+        public Tool() {
+        }
+
+        public Tool(Function function) {
+            this.function = function;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public Function getFunction() {
+            return function;
+        }
+
+        public void setFunction(Function function) {
+            this.function = function;
+        }
     }
 
     // 描述具体函数的结构
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     public static class Function {
         private String name;
         private String description;
 
-        private Map<String,Object> parameters;
+        private Map<String, Object> parameters;
 
         public String getName() {
             return name;
