@@ -31,11 +31,13 @@ public class AIServiceInvocationHandler implements InvocationHandler {
     private final SlidingWindowStrategy windowStrategy;
     private final ObjectMapper objectMapper;
     private final AIToolRegistry toolRegistry;
+    private final org.springframework.core.env.Environment environment;
 
     public AIServiceInvocationHandler(Class<?> interfaceClass, LLMProvider llmProvider,
             PromptTemplateEngine promptTemplateEngine,
             ChatMemory chatMemory, SlidingWindowStrategy windowStrategy,
-            ObjectMapper objectMapper, AIToolRegistry toolRegistry) {
+            ObjectMapper objectMapper, AIToolRegistry toolRegistry,
+            org.springframework.core.env.Environment environment) {
         this.interfaceClass = interfaceClass;
         this.llmProvider = llmProvider;
         this.promptTemplateEngine = promptTemplateEngine;
@@ -43,6 +45,7 @@ public class AIServiceInvocationHandler implements InvocationHandler {
         this.windowStrategy = windowStrategy;
         this.objectMapper = objectMapper;
         this.toolRegistry = toolRegistry;
+        this.environment = environment;
     }
 
     @Override
@@ -55,8 +58,21 @@ public class AIServiceInvocationHandler implements InvocationHandler {
         Method actualMethod = interfaceClass.getMethod(method.getName(), method.getParameterTypes());
 
         Prompt promptAnnotation = actualMethod.getAnnotation(Prompt.class);
-        if (promptAnnotation == null || !StringUtils.hasText(promptAnnotation.value())) {
-            throw new IllegalStateException("Method " + method.getName() + " must be annotated with @Prompt");
+
+        // 拼接配置中心的全局唯一 Key
+        String configKey = interfaceClass.getName() + "." + actualMethod.getName();
+        // 尝试从环境中读取热更新配置
+        String rawPromptValue = environment != null ? environment.getProperty(configKey) : null;
+
+        if (!StringUtils.hasText(rawPromptValue)) {
+            // 如果没配，则回退读取 @Prompt 注解值
+            if (promptAnnotation == null || !StringUtils.hasText(promptAnnotation.value())) {
+                throw new IllegalStateException(
+                        "Method " + method.getName() + " 必须通过 @Prompt 注解或 " + configKey + " 配置指定提示词");
+            }
+            rawPromptValue = promptAnnotation.value();
+        } else {
+            System.out.println("[EchoFlow Config] 触发云端配置，成功应用热更新 Prompt: " + configKey);
         }
 
         // 解析参数
@@ -86,7 +102,7 @@ public class AIServiceInvocationHandler implements InvocationHandler {
             }
         }
         // 1. 生成实际 Prompt 并记录为用户消息
-        String realPrompt = promptTemplateEngine.render(promptAnnotation.value(), variables);
+        String realPrompt = promptTemplateEngine.render(rawPromptValue, variables);
 
         // 探查期望的返回类型
         java.lang.reflect.Type genericReturnType = actualMethod.getGenericReturnType();
@@ -119,31 +135,18 @@ public class AIServiceInvocationHandler implements InvocationHandler {
         // 3. 构建发过去的请求
         ChatRequest request = ChatRequest.of(null, limitedMessages);
 
-        // 将本地方法通过反射组成大模型认识的json schema塞入请求
+        // 将本地及 MCP 所有的工具组成 JSON Schema 给大模型过目
         if (toolRegistry != null && !toolRegistry.getAllTools().isEmpty()) {
             List<ChatRequest.Tool> tools = new ArrayList<>();
-            for (Map.Entry<String, AIToolRegistry.ToolMethodInfo> entry : toolRegistry.getAllTools().entrySet()) {
+            for (Map.Entry<String, AIToolRegistry.ToolInfo> entry : toolRegistry.getAllTools().entrySet()) {
                 ChatRequest.Tool tool = new ChatRequest.Tool();
                 ChatRequest.Function function = new ChatRequest.Function();
-                function.setName(entry.getKey());
+                function.setName(entry.getValue().name);
                 function.setDescription(entry.getValue().description);
 
-                // 构建 parameters Schema
-                Map<String, Object> parameters = new HashMap<>();
-                parameters.put("type", "object");
-                Map<String, Object> properties = new HashMap<>();
+                // 直接提取我们在 Registry 注册时造好的 parameterSchema
+                function.setParameters(entry.getValue().parametersSchema);
 
-                for (Parameter p : entry.getValue().targetMethod.getParameters()) {
-                    Map<String, String> proDef = new HashMap<>();
-                    proDef.put("type", "string");
-                    AIToolParam param = p.getAnnotation(AIToolParam.class);
-                    if (param != null) {
-                        proDef.put("description", param.value());
-                    }
-                    properties.put(p.getName(), proDef);
-                }
-                parameters.put("properties", properties);
-                function.setParameters(parameters);
                 tool.setFunction(function);
                 tools.add(tool);
             }
@@ -202,23 +205,17 @@ public class AIServiceInvocationHandler implements InvocationHandler {
                     String funcName = toolCall.getFunction().getName();
                     String jsonArgs = toolCall.getFunction().getArguments();
 
-                    AIToolRegistry.ToolMethodInfo methodInfo = toolRegistry.getAllTools().get(funcName);
+                    AIToolRegistry.ToolInfo toolInfo = toolRegistry.getAllTools().get(funcName);
                     Object executeResult;
                     try {
                         com.fasterxml.jackson.databind.JsonNode jsonNode = objectMapper.readTree(jsonArgs);
-                        Object[] javaArgs = new Object[methodInfo.targetMethod.getParameterCount()];
 
-                        for (int k = 0; k < methodInfo.targetMethod.getParameters().length; k++) {
-                            Parameter p = methodInfo.targetMethod.getParameters()[k];
-                            com.fasterxml.jackson.databind.JsonNode valNode = jsonNode.get(p.getName());
-                            javaArgs[k] = (valNode != null) ? objectMapper.treeToValue(valNode, p.getType()) : null;
-                        }
+                        // 【高亮改动：彻底告别原生反射，直接调接口执行】
+                        executeResult = toolInfo.executor.execute(jsonNode);
+                        System.out.println("[EchoFlow Agent] 工具 " + funcName + " 成功返回结果：" + executeResult);
 
-                        // 反射执行
-                        executeResult = methodInfo.targetMethod.invoke(methodInfo.targetBean, javaArgs);
-                        System.out.println("[EchoFlow Agent] 本地工具 " + funcName + " 执行成功，结果：" + executeResult);
                     } catch (Exception e) {
-                        System.err.println("[EchoFlow Agent] 本地工具执行失败：" + e.getMessage());
+                        System.err.println("[EchoFlow Agent] 工具执行失败：" + e.getMessage());
                         executeResult = "内部执行错误：" + e.getMessage();
                     }
 

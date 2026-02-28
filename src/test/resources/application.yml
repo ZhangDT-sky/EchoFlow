@@ -13,6 +13,13 @@ spring:
       host: 127.0.0.1
       port: 6379
 
+org:
+  echoflow:
+    test:
+      service:
+        ChatBotService:
+          askArchitect: "你现在的身份不是架构师了，而是一名前端实习生。请用不超过50个字简单回答：{{question}}"
+
 logging:
   level:
     org.echoflow: DEBUG

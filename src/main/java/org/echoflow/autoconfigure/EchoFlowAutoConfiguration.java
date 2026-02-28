@@ -7,6 +7,8 @@ import org.echoflow.core.prompt.PromptTemplateEngine;
 import org.echoflow.core.provider.DeepSeekProvider;
 import org.echoflow.core.provider.LLMProvider;
 import org.echoflow.core.proxy.AIServiceScannerRegistrar;
+import org.echoflow.core.tool.AIToolRegistry;
+import org.echoflow.core.tool.McpClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -28,9 +30,20 @@ public class EchoFlowAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public org.echoflow.core.tool.AIToolRegistry aiToolRegistry() {
-        return new org.echoflow.core.tool.AIToolRegistry();
+    public org.echoflow.core.tool.AIToolRegistry aiToolRegistry(ObjectMapper objectMapper) {
+        AIToolRegistry registry = new AIToolRegistry();
+        registry.setObjectMapper(objectMapper);
+        return registry;
     }
+
+    public McpClient mcpClient(
+            AIToolRegistry registry,
+            EchoFlowProperties properties
+    ){
+        System.out.println("[EchoFlow Config] 检测到 MCP 配置，启动远端模型上下文服务器客户端 (McpClient)");
+        return new org.echoflow.core.tool.McpClient(registry, properties.getMcp().getServers());
+    }
+
 
     // =========== 分支一：如果检测到了 Redis ============
     @Bean

@@ -29,6 +29,9 @@ public class AIServiceFactoryBean<T> implements FactoryBean<T> {
     @Autowired
     private AIToolRegistry toolRegistry;
 
+    @Autowired
+    private org.springframework.core.env.Environment environment;
+
     public AIServiceFactoryBean() {
 
     }
@@ -40,7 +43,8 @@ public class AIServiceFactoryBean<T> implements FactoryBean<T> {
     @Override
     public T getObject() throws Exception {
         AIServiceInvocationHandler handler = new AIServiceInvocationHandler(
-                mapperInterface, llmProvider, promptTemplateEngine, chatMemory, windowStrategy, objectMapper, toolRegistry);
+                mapperInterface, llmProvider, promptTemplateEngine, chatMemory, windowStrategy, objectMapper,
+                toolRegistry, environment);
 
         return (T) Proxy.newProxyInstance(
                 mapperInterface.getClassLoader(),
