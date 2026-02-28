@@ -22,4 +22,10 @@ public interface ChatBotService {
     @LogToken
     @Prompt("抽取以下文本中的人物信息：{{text}}")
     org.echoflow.test.entity.UserInfo extractUserInfo(@V("text") String text);
+
+    // 4. 新加入的知识大脑 (RAG检索增强生成)
+    @org.echoflow.annotation.RAG(topK = 2) // 不配 store 将自动拾取唯一的 InMemoryVectorStore
+    @LogToken
+    @Prompt("你作为懂行的 HR，请为员工解答以下疑问：{{question}}。")
+    String askCompanyPolicy(@V("question") String question);
 }

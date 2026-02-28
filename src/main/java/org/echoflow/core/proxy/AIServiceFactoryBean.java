@@ -9,10 +9,13 @@ import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+
 import java.lang.reflect.Proxy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class AIServiceFactoryBean<T> implements FactoryBean<T> {
+public class AIServiceFactoryBean<T> implements FactoryBean<T>, ApplicationContextAware {
 
     private Class<T> mapperInterface;
 
@@ -32,6 +35,8 @@ public class AIServiceFactoryBean<T> implements FactoryBean<T> {
     @Autowired
     private org.springframework.core.env.Environment environment;
 
+    private ApplicationContext applicationContext;
+
     public AIServiceFactoryBean() {
 
     }
@@ -41,10 +46,15 @@ public class AIServiceFactoryBean<T> implements FactoryBean<T> {
     }
 
     @Override
+    public void setApplicationContext(ApplicationContext applicationContext) {
+        this.applicationContext = applicationContext;
+    }
+
+    @Override
     public T getObject() throws Exception {
         AIServiceInvocationHandler handler = new AIServiceInvocationHandler(
                 mapperInterface, llmProvider, promptTemplateEngine, chatMemory, windowStrategy, objectMapper,
-                toolRegistry, environment);
+                toolRegistry, environment, applicationContext);
 
         return (T) Proxy.newProxyInstance(
                 mapperInterface.getClassLoader(),

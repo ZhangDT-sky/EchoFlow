@@ -38,12 +38,10 @@ public class EchoFlowAutoConfiguration {
 
     public McpClient mcpClient(
             AIToolRegistry registry,
-            EchoFlowProperties properties
-    ){
+            EchoFlowProperties properties) {
         System.out.println("[EchoFlow Config] 检测到 MCP 配置，启动远端模型上下文服务器客户端 (McpClient)");
         return new org.echoflow.core.tool.McpClient(registry, properties.getMcp().getServers());
     }
-
 
     // =========== 分支一：如果检测到了 Redis ============
     @Bean
@@ -87,5 +85,26 @@ public class EchoFlowAutoConfiguration {
     @ConditionalOnMissingBean
     public TokenLoggingAspect tokenLoggingAspect() {
         return new TokenLoggingAspect();
+    }
+
+    // =========== 终极知识大脑 RAG 装配 ============
+    @Bean
+    @ConditionalOnMissingBean
+    public org.echoflow.core.provider.EmbeddingProvider embeddingProvider(EchoFlowProperties properties) {
+        System.out.println("[EchoFlow Config] 启动大模型向量化引擎 (OpenAiCompatibleEmbeddingProvider)");
+        // 默认复用用户的 baseUrl 和 apiKey，并默认使用 deepseek-coder 或者 openai text-embedding 模型
+        // 由于 properties 暂无独立 embeding_model，此处使用约定的通用名字或沿用 defaultModel
+        return new org.echoflow.core.provider.OpenAiCompatibleEmbeddingProvider(
+                properties.getBaseUrl(),
+                properties.getApiKey(),
+                properties.getEmbeddingModel());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public org.echoflow.core.rag.VectorStore vectorStore(
+            org.echoflow.core.provider.EmbeddingProvider embeddingProvider) {
+        System.out.println("[EchoFlow Config] 初始化基于本地内存的向数据库 (InMemoryVectorStore)");
+        return new org.echoflow.core.rag.InMemoryVectorStore(embeddingProvider);
     }
 }

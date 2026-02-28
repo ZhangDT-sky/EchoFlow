@@ -24,6 +24,12 @@ public class EchoFlowApplicationTest {
     @Autowired
     private ChatBotService chatBotService;
 
+    @Autowired(required = false)
+    private io.micrometer.core.instrument.MeterRegistry meterRegistry;
+
+    @Autowired
+    private org.echoflow.core.rag.VectorStore vectorStore;
+
     @Test
     public void testBasicPrompt() {
         System.out.println("========== 测试单一问答 ==========");
@@ -81,5 +87,64 @@ public class EchoFlowApplicationTest {
         System.out.println("AI: " + finalAnswer);
 
         // 如果 AI 还能准确答出 123456，说明摘要机制在老对话被抛弃前，完美地把核心机密抽取成了系统消息保存了下来！
+    }
+
+    @Test
+    public void testMicrometerMetrics() {
+        System.out.println("\n========== 测试全链路监控指标暴露 (Micrometer) ==========");
+        if (meterRegistry == null) {
+            System.err.println("当前测试环境未注入 MeterRegistry，可能缺少 spring-boot-starter-actuator，跳过验证。");
+            return;
+        }
+
+        // 1. 发起一次常规大模型调用，触发 TokenLoggingAspect 拦截器
+        System.out.println("向 LLM 发送请求触发监控打点...");
+        chatBotService.askArchitect("请用10个字简要说明什么是 Java 接口。");
+
+        // 2. 从注册表(Registry)里拉取监控计量器
+        io.micrometer.core.instrument.Timer timer = meterRegistry.find("echoflow.llm.request.timer")
+                .tag("method", "askArchitect")
+                .timer();
+        io.micrometer.core.instrument.Counter inputCounter = meterRegistry.find("echoflow.llm.token.usage")
+                .tag("method", "askArchitect")
+                .tag("type", "input")
+                .counter();
+        io.micrometer.core.instrument.Counter outputCounter = meterRegistry.find("echoflow.llm.token.usage")
+                .tag("method", "askArchitect")
+                .tag("type", "output")
+                .counter();
+
+        System.out.println("==== 提取到的打点核心度量展示 ====");
+        System.out.println("大模型 Timer 打点频次：" + (timer != null ? timer.count() : "null"));
+        System.out.println("大模型 Timer 总计耗时(ms)："
+                + (timer != null ? timer.totalTime(java.util.concurrent.TimeUnit.MILLISECONDS) : "null"));
+        System.out.println("大模型 InputToken 预估消耗：" + (inputCounter != null ? inputCounter.count() : "null"));
+        System.out.println("大模型 OutputToken 预估消耗：" + (outputCounter != null ? outputCounter.count() : "null"));
+
+        org.junit.jupiter.api.Assertions.assertNotNull(timer, "Timer 不能为 null，说明 Aspect 没有成功将数据刷入 Micrometer。");
+        org.junit.jupiter.api.Assertions.assertTrue(timer.count() > 0, "Timer 测试频次应该大于 0");
+        org.junit.jupiter.api.Assertions.assertNotNull(inputCounter, "Input Counter 监控打点丢失");
+        org.junit.jupiter.api.Assertions.assertTrue(inputCounter.count() > 0, "消耗的 InputTokens 应该大于 0");
+    }
+
+    @Test
+    public void testRAG() {
+        System.out.println("\n========== 测试知识大脑：检索增强生成 (RAG) ==========");
+
+        // 1. 模拟管理员或爬虫把知识塞进向量库
+        System.out.println("[管理员] 正在将公司私有规章制度进行 Embedding 向量化入库...");
+        java.util.List<org.echoflow.core.rag.Document> internalKnowledge = java.util.Arrays.asList(
+                new org.echoflow.core.rag.Document("公司规定：每周五下午3点以后为下午茶时间，允许员工提前一小时也就是下午5点下班。"),
+                new org.echoflow.core.rag.Document("报销流程：所有超过 500 元的报销必须经过部门总监审批，并且需要附上纸质发票原件。"),
+                new org.echoflow.core.rag.Document("关于年假：入职满一年的员工每年享有额外 5 天的带薪年假，未休完的年假可在次年一月底前折算成工资。"));
+        vectorStore.add(internalKnowledge);
+        System.out.println("[管理员] 知识片段入库完成！");
+
+        // 2. 模拟普通员工咨询，直接调用 @RAG 强化的接口
+        String trickyQuestion = "我刚入司三年，想问问周五下班点是啥时候？另外超过两百块钱的报销需要总监批吗？";
+        System.out.println("\n[员工提问]: " + trickyQuestion);
+
+        String answer = chatBotService.askCompanyPolicy(trickyQuestion);
+        System.out.println("\n[AI HR大模型回答]:\n" + answer);
     }
 }

@@ -32,12 +32,14 @@ public class AIServiceInvocationHandler implements InvocationHandler {
     private final ObjectMapper objectMapper;
     private final AIToolRegistry toolRegistry;
     private final org.springframework.core.env.Environment environment;
+    private final org.springframework.context.ApplicationContext applicationContext;
 
     public AIServiceInvocationHandler(Class<?> interfaceClass, LLMProvider llmProvider,
             PromptTemplateEngine promptTemplateEngine,
             ChatMemory chatMemory, SlidingWindowStrategy windowStrategy,
             ObjectMapper objectMapper, AIToolRegistry toolRegistry,
-            org.springframework.core.env.Environment environment) {
+            org.springframework.core.env.Environment environment,
+            org.springframework.context.ApplicationContext applicationContext) {
         this.interfaceClass = interfaceClass;
         this.llmProvider = llmProvider;
         this.promptTemplateEngine = promptTemplateEngine;
@@ -46,6 +48,7 @@ public class AIServiceInvocationHandler implements InvocationHandler {
         this.objectMapper = objectMapper;
         this.toolRegistry = toolRegistry;
         this.environment = environment;
+        this.applicationContext = applicationContext;
     }
 
     @Override
@@ -103,6 +106,35 @@ public class AIServiceInvocationHandler implements InvocationHandler {
         }
         // 1. 生成实际 Prompt 并记录为用户消息
         String realPrompt = promptTemplateEngine.render(rawPromptValue, variables);
+
+        // ===================================
+        // 核心改动：@RAG 检索增强向量融合
+        // ===================================
+        org.echoflow.annotation.RAG ragAnnotation = actualMethod.getAnnotation(org.echoflow.annotation.RAG.class);
+        if (ragAnnotation != null && applicationContext != null) {
+            try {
+                // 根据注解填写的引擎名字找，如果为空则随便捞一个环境里配的 VectorStore
+                org.echoflow.core.rag.VectorStore vectorStore = !StringUtils.hasText(ragAnnotation.store())
+                        ? applicationContext.getBean(org.echoflow.core.rag.VectorStore.class)
+                        : applicationContext.getBean(ragAnnotation.store(), org.echoflow.core.rag.VectorStore.class);
+
+                // 取用户的原生入参字符串来进行匹配，为了简单起见，目前取拼接后的 realPrompt 当做 query 发给大模型去找相同的东西
+                java.util.List<org.echoflow.core.rag.Document> docs = vectorStore.similaritySearch(realPrompt,
+                        ragAnnotation.topK());
+
+                // 【核心一击】：偷偷把外挂大脑的知识拼在系统级 Prompt 里警告模型
+                if (docs != null && !docs.isEmpty()) {
+                    realPrompt += "\n\n【系统附加：极其重要的私密背景参考知识】：\n";
+                    for (int i = 0; i < docs.size(); i++) {
+                        realPrompt += (i + 1) + ". " + docs.get(i).getContent() + "\n";
+                    }
+                    realPrompt += "\n请你必须并且只能根据上述给予的参考资料，综合你的能力来回答我的问题。\n";
+                    System.out.println("[EchoFlow RAG] 已成功从核心知识库捞回 " + docs.size() + " 条私密知识片段并混入本次对话上下文底座！");
+                }
+            } catch (org.springframework.beans.factory.NoSuchBeanDefinitionException e) {
+                System.err.println("[EchoFlow RAG] 拦截到 @RAG 注解，但 Spring 容器中找不到 VectorStore Bean，已降级为普通无记忆对话模式。");
+            }
+        }
 
         // 探查期望的返回类型
         java.lang.reflect.Type genericReturnType = actualMethod.getGenericReturnType();

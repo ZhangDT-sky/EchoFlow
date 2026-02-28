@@ -19,6 +19,14 @@ org:
       service:
         ChatBotService:
           askArchitect: "你现在的身份不是架构师了，而是一名前端实习生。请用不超过50个字简单回答：{{question}}"
+management:
+  endpoint:
+    web:
+      exposure:
+        include: "prometheus,metrics"
+  metrics:
+    tags:
+      application: "echoflow-demo"  # 全局打上这个 App 的标签，方便 Grafana 下拉框筛选
 
 logging:
   level:

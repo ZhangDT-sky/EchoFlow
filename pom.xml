@@ -72,6 +72,20 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- (新增) Spring Boot 监控和管理模块 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- (新增) 提供 Micrometer 指标暴露能力（兼容 Prometheus 等端点） -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+            <!-- 设置为可选依赖，强制让使用这个 Starter 的业务按需加载 -->
+            <optional>true</optional>
+        </dependency>
+
+
     </dependencies>
 
 </project>

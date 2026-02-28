@@ -15,20 +15,29 @@ public class EchoFlowProperties {
 
     private String defaultModel = "deepseek-chat";
 
+    /**
+     * RAG 专用的独立向量化模型名称 (默认：text-embedding-v3以兼容大部分平台)
+     */
+    private String embeddingModel = "text-embedding-v3";
+
     private Mcp mcp = new Mcp();
-    public Mcp getMcp(){
+
+    public Mcp getMcp() {
         return mcp;
     }
-    public void setMcp(Mcp mcp){
-        this.mcp=mcp;
+
+    public void setMcp(Mcp mcp) {
+        this.mcp = mcp;
     }
 
     public static class Mcp {
         private List<String> servers = new ArrayList<>();
-        public List<String> getServers(){
+
+        public List<String> getServers() {
             return servers;
         }
-        public void setServers(List<String> servers){
+
+        public void setServers(List<String> servers) {
             this.servers = servers;
         }
     }
@@ -63,5 +72,13 @@ public class EchoFlowProperties {
 
     public void setDefaultModel(String defaultModel) {
         this.defaultModel = defaultModel;
+    }
+
+    public String getEmbeddingModel() {
+        return embeddingModel;
+    }
+
+    public void setEmbeddingModel(String embeddingModel) {
+        this.embeddingModel = embeddingModel;
     }
 }
