@@ -10,6 +10,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 基于 Redis + RediSearch 的生产级向量数据库实现。
+ * 利用 Redis 的 FT.SEARCH KNN 命令做向量余弦检索，性能远超内存遍历。
+ *
+ * 前置条件：Redis 服务端需要加载 RediSearch 模块（Docker 用 redis/redis-stack 镜像）。
+ */
 public class RedisVectorStore implements VectorStore{
 
     private static final String KEY_PREFIX = "echoflow:rag:doc:";
@@ -23,7 +29,8 @@ public class RedisVectorStore implements VectorStore{
         this.redisTemplate = redisTemplate;
         this.embeddingProvider = embeddingProvider;
         this.objectMapper = objectMapper;
-
+        // 启动时确保索引存在（幂等操作）
+        ensureIndexExists();
     }
 
     @Override
@@ -44,6 +51,27 @@ public class RedisVectorStore implements VectorStore{
         }
     }
 
+    private void ensureIndexExists() {
+        try {
+            redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<Object>) conn ->
+                    conn.execute("FT.CREATE", new byte[][]{
+                            INDEX_NAME.getBytes(),
+                            "ON".getBytes(), "HASH".getBytes(),
+                            "PREFIX".getBytes(), "1".getBytes(), KEY_PREFIX.getBytes(),
+                            "SCHEMA".getBytes(),
+                            "content".getBytes(), "TEXT".getBytes(),
+                            "vector".getBytes(), "VECTOR".getBytes(), "FLAT".getBytes(),
+                            "6".getBytes(),
+                            "TYPE".getBytes(), "FLOAT32".getBytes(),
+                            "DIM".getBytes(), "1536".getBytes(), // 需与 EmbeddingProvider 输出维度一致
+                            "DISTANCE_METRIC".getBytes(), "COSINE".getBytes()
+                    })
+            );
+        } catch (Exception e) {
+            // 索引已存在时 Redis 会抛出异常，忽略即可（幂等）
+        }
+    }
+
     @Override
     public List<Document> similaritySearch(String query, int topK) {
         List<Double> queryVector = embeddingProvider.embed(query);
@@ -52,6 +80,7 @@ public class RedisVectorStore implements VectorStore{
                 (org.springframework.data.redis.core.RedisCallback<Object>) conn ->
                         conn.execute("FT.SEARCH", buildKnnArgs(INDEX_NAME, vectorStr, topK))
         );
+        return parseSearchResult(rawResult);
     }
 
     private byte[][] buildKnnArgs(String index,String vectorStr,int topK){
