@@ -1,5 +1,6 @@
 package org.echoflow.core.rag;
 
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 
@@ -13,12 +14,12 @@ import java.util.Map;
  * PDF 文件加载器：基于 Apache PDFBox 提取每一页的纯文本内容。
  * 每一页独立成为一个 Document，并在 metadata 中标记页码和来源。
  */
-public class PdfDocumentLoader implements DocumentLoader{
+public class PdfDocumentLoader implements DocumentLoader {
 
     @Override
     public List<Document> load(String uri) {
         List<Document> documents = new ArrayList<>();
-        try (PDDocument pdf = PDDocument.load(new File(uri))) {
+        try (PDDocument pdf = Loader.loadPDF(new File(uri))) {
             PDFTextStripper stripper = new PDFTextStripper();
             int totalPages = pdf.getNumberOfPages();
             for (int page = 1; page <= totalPages; page++) {
@@ -37,6 +38,5 @@ public class PdfDocumentLoader implements DocumentLoader{
             throw new RuntimeException("[EchoFlow RAG] 读取 PDF 文件失败: " + uri, e);
         }
         return documents;
-    }
     }
 }
