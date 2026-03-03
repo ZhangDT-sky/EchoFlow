@@ -5,8 +5,10 @@ import org.echoflow.aop.TokenLoggingAspect;
 import org.echoflow.core.context.*;
 import org.echoflow.core.prompt.PromptTemplateEngine;
 import org.echoflow.core.provider.DeepSeekProvider;
+import org.echoflow.core.provider.EmbeddingProvider;
 import org.echoflow.core.provider.LLMProvider;
 import org.echoflow.core.proxy.AIServiceScannerRegistrar;
+import org.echoflow.core.rag.VectorStore;
 import org.echoflow.core.tool.AIToolRegistry;
 import org.echoflow.core.tool.McpClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -60,6 +62,16 @@ public class EchoFlowAutoConfiguration {
         return new InMemoryChatMemory();
     }
 
+    // =========== RAG 高阶：如果检测到 Redis 则自动升级为持久化向量库 ============
+    public VectorStore redisVectorStore(
+            StringRedisTemplate redisTemplate,
+            EmbeddingProvider embeddingProvider,
+            ObjectMapper objectMapper
+    ){
+        System.out.println("[EchoFlow Config] 检测到 Redis，启动生产级持久化向量库 (RedisVectorStore)");
+        return new org.echoflow.core.rag.RedisVectorStore(redisTemplate, embeddingProvider, objectMapper);
+    }
+
     @Bean
     @ConditionalOnProperty(prefix = "echoflow.memory", name = "strategy", havingValue = "summary")
     public SlidingWindowStrategy summaryWindowStrategy(LLMProvider llmProvider) {
@@ -84,6 +96,7 @@ public class EchoFlowAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public TokenLoggingAspect tokenLoggingAspect() {
+        System.out.println("[EchoFlow Config] 全链路审计统计引擎 TokenLoggingAspect 已加载集成 (支持 Micrometer打点)");
         return new TokenLoggingAspect();
     }
 

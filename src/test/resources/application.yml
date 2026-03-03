@@ -31,3 +31,7 @@ management:
 logging:
   level:
     org.echoflow: DEBUG
+
+#echoflow:
+#  rag:
+#    store: redis   # 不配置时默认使用 InMemoryVectorStore
