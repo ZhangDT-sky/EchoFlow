@@ -10,15 +10,14 @@ import org.echoflow.core.context.SlidingWindowStrategy;
 import org.echoflow.core.prompt.PromptTemplateEngine;
 import org.echoflow.core.provider.LLMProvider;
 import org.echoflow.core.tool.AIToolRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -33,6 +32,7 @@ public class AIServiceInvocationHandler implements InvocationHandler {
     private final AIToolRegistry toolRegistry;
     private final org.springframework.core.env.Environment environment;
     private final org.springframework.context.ApplicationContext applicationContext;
+    private static final Logger log = LoggerFactory.getLogger(AIServiceInvocationHandler.class);
 
     public AIServiceInvocationHandler(Class<?> interfaceClass, LLMProvider llmProvider,
             PromptTemplateEngine promptTemplateEngine,
@@ -80,7 +80,7 @@ public class AIServiceInvocationHandler implements InvocationHandler {
 
         // 解析参数
         Map<String, Object> variables = new HashMap<>();
-        String currentSessionId = "default-session";
+        String currentSessionId = UUID.randomUUID().toString();
         if (args != null) {
             java.lang.annotation.Annotation[][] parameterAnnotations = actualMethod.getParameterAnnotations();
             for (int i = 0; i < args.length; i++) {
@@ -239,16 +239,21 @@ public class AIServiceInvocationHandler implements InvocationHandler {
 
                     AIToolRegistry.ToolInfo toolInfo = toolRegistry.getAllTools().get(funcName);
                     Object executeResult;
-                    try {
-                        com.fasterxml.jackson.databind.JsonNode jsonNode = objectMapper.readTree(jsonArgs);
+                    if (toolInfo == null) {
+                        log.warn("[EchoFlow Agent] 模型请求了一个未注册的工具: {}，已跳过并告知模型", funcName);
+                        executeResult = "错误：工具 [" + funcName + "] 不存在，请重新选择已注册的工具。";
+                    } else {
+                        try {
+                            com.fasterxml.jackson.databind.JsonNode jsonNode = objectMapper.readTree(jsonArgs);
 
-                        // 【高亮改动：彻底告别原生反射，直接调接口执行】
-                        executeResult = toolInfo.executor.execute(jsonNode);
-                        System.out.println("[EchoFlow Agent] 工具 " + funcName + " 成功返回结果：" + executeResult);
+                            // 【高亮改动：彻底告别原生反射，直接调接口执行】
+                            executeResult = toolInfo.executor.execute(jsonNode);
+                            log.info("[EchoFlow Agent] 工具 {} 成功返回结果：{}", funcName, executeResult);
 
-                    } catch (Exception e) {
-                        System.err.println("[EchoFlow Agent] 工具执行失败：" + e.getMessage());
-                        executeResult = "内部执行错误：" + e.getMessage();
+                        } catch (Exception e) {
+                            log.error("[EchoFlow Agent] 工具执行失败：{}", e.getMessage(), e);
+                            executeResult = "内部执行错误：" + e.getMessage();
+                        }
                     }
 
                     // 3. 把执行结果封入 Message 发回（role 必须是 tool）

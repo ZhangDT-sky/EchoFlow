@@ -3,6 +3,8 @@ package org.echoflow.core.context;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.echoflow.core.chat.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.ArrayList;
@@ -13,6 +15,7 @@ public class RedisChatMemory implements ChatMemory {
     private static final String KEY_PREFIX = "echoflow:chat:memory:";
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private static final Logger log = LoggerFactory.getLogger(RedisChatMemory.class);
 
     public RedisChatMemory(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
@@ -44,7 +47,7 @@ public class RedisChatMemory implements ChatMemory {
             try {
                 messages.add(objectMapper.readValue(json, Message.class));
             } catch (JsonProcessingException e) {
-
+                log.warn("[EchoFlow RedisChatMemory] 跳过一条无法解析的历史消息: {}", json, e);
             }
         }
         return messages;

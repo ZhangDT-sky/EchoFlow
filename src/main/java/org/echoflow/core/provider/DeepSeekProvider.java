@@ -31,14 +31,20 @@ public class DeepSeekProvider implements LLMProvider {
     @Override
     public ChatResponse chat(ChatRequest request) {
         Map<String, Object> body = buildRawRequest(request, false);
-
-        // 发起同步请求
         JsonNode jsonNode = webClient.post()
                 .uri("/chat/completions")
                 .bodyValue(body)
                 .retrieve()
+                .onStatus(status -> status.isError(), clientResponse ->
+                        clientResponse.bodyToMono(String.class).map(errorBody ->
+                                new RuntimeException("[EchoFlow] 模型 API 调用失败, HTTP状态: "
+                                        + clientResponse.statusCode() + ", 响应体: " + errorBody)
+                        ))
                 .bodyToMono(JsonNode.class)
-                .block(); // block 阻塞等待结果
+                .block();
+        if (jsonNode == null) {
+            throw new RuntimeException("[EchoFlow] 模型 API 返回了空响应，请检查网络或 API Key 配置");
+        }
         return parseResponse(jsonNode);
     }
 
@@ -47,7 +53,7 @@ public class DeepSeekProvider implements LLMProvider {
         Map<String, Object> body = buildRawRequest(request, true);
 
         return webClient.post()
-                .uri("chat/completions")
+                .uri("/chat/completions")
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .bodyValue(body)
                 .retrieve()
